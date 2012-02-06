@@ -206,6 +206,39 @@
                     for(var k = 0, eL = slice.entries.length; k < eL; ++k) {
                         var entry = slice.entries[k];
                         
+                        var startedTime = parseISO8601(entry.startedDateTime);
+
+                        // Slice stats
+                        ++slice.fileCount;
+                        slice.totalSize += entry.response.content.size;
+
+                        if (entry.response.status == 304)
+                            slice.cachedSize += entry.response.content.size;
+
+                        if (!minTime || startedTime < minTime)
+                            minTime = startedTime;
+
+                        var entryEndTime = startedTime + entry.time;
+                        if (entryEndTime > maxTime)
+                            maxTime = entryEndTime;
+                    }
+
+                    slice.totalTime = maxTime - minTime;
+
+                    page.fileCount += slice.fileCount;
+                    page.totalSize += slice.totalSize;
+                    page.cachedSize += slice.cachedSize;
+                    page.totalTime += slice.totalTime;
+                }
+
+                // now given the page.totalTime, go back to set up the bar display for each entry
+                for(var j = 0, sL = page.slices.length; j < sL; ++j) {
+                    var slice = page.slices[j];
+
+                    // entries
+                    for(var k = 0, eL = slice.entries.length; k < eL; ++k) {
+                        var entry = slice.entries[k];
+                    
                         // Individual phases of a request:
                         //
                         // 1) Blocking          HTTP-ON-MODIFY-REQUEST -> (STATUS_RESOLVING || STATUS_CONNECTING_TO)
@@ -233,41 +266,25 @@
 
                         var startedTime = parseISO8601(entry.startedDateTime);
 
+                        // The following commented out statement should technically be more correct
+                        // However it seems to tend to push the bars of the last entries on the page
+                        // to close to (or out of) the margin of the viewer, making them hard (or unable) to see
+                        // Thus, it's replaced by the statement in use to make it look better to humans
+                        // entry.barOffset = Math.floor(((startedTime - page.startedTime) / page.totalTime) * 100);
                         entry.barOffset = Math.floor(((startedTime - slice.startedTime) / slice.elapsedTime) * 100);
 
                         // Compute size of each bar. Left side of each bar starts at the
                         // beginning. The first bar is on top of all and the last one is
                         // at the bottom (z-index).
-                        entry.barResolving = Math.round((resolving / slice.elapsedTime) * 100);
-                        entry.barConnecting = Math.round((connecting / slice.elapsedTime) * 100);
-                        entry.barBlocking = Math.round((blocking / slice.elapsedTime) * 100);
-                        entry.barSending = Math.round((sending / slice.elapsedTime) * 100);
-                        entry.barWaiting = Math.round((waiting / slice.elapsedTime) * 100);
-                        entry.barReceiving = Math.round((receiving / slice.elapsedTime) * 100);
-
-                        // Slice stats
-                        ++slice.fileCount;
-                        slice.totalSize += entry.response.content.size;
-
-                        if (entry.response.status == 304)
-                            slice.cachedSize += entry.response.content.size;
-
-                        if (!minTime || startedTime < minTime)
-                            minTime = startedTime;
-
-                        var entryEndTime = startedTime + entry.time;
-                        if (entryEndTime > maxTime)
-                            maxTime = entryEndTime;
+                        entry.barResolving = Math.round((resolving / page.totalTime) * 100);
+                        entry.barConnecting = Math.round((connecting / page.totalTime) * 100);
+                        entry.barBlocking = Math.round((blocking / page.totalTime) * 100);
+                        entry.barSending = Math.round((sending / page.totalTime) * 100);
+                        entry.barWaiting = Math.round((waiting / page.totalTime) * 100);
+                        entry.barReceiving = Math.round((receiving / page.totalTime) * 100);
                     }
-
-                    slice.totalTime = maxTime - minTime;
-
-                    page.fileCount += slice.fileCount;
-                    page.totalSize += slice.totalSize;
-                    page.cachedSize += slice.cachedSize;
-                    page.totalTime += slice.totalTime;
                 }
-
+                
                 data.fileCount += page.fileCount;
                 data.totalSize += page.totalSize;
                 data.cachedSize += page.cachedSize;
